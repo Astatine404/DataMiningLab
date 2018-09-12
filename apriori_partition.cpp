@@ -1,14 +1,23 @@
 #include<iostream>
 #include<fstream>
 #include<bits/stdc++.h>
-
 using namespace std;
+map<set<int>, int> final;
 
 fstream fout;
-void print(map<set<int>, int> &m){
+void print(map<set<int>, int> &m, bool save){
 	fstream fout;
 	fout.open("apriori_out.txt", ios::out|ios::app);
+	if(!save)
+	fout<<"Printing global frequent itemset:\n";
 	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end(); it++){
+		if(save){
+			if(final.find(it->first)==final.end())
+			final[it->first] = it->second;
+			else
+			final[it->first] += it->second;
+		}
+		
 		cout<<"{"; fout<<"{";
 		for(set<int>::iterator i=it->first.begin(); i!=it->first.end(); i++){
 			cout<<*i<<" "; fout<<*i<<" ";
@@ -16,6 +25,7 @@ void print(map<set<int>, int> &m){
 		cout<<"} : "; fout<<"} : ";
 		cout<<it->second<<endl; fout<<it->second<<endl;
 	}
+	fout.close();
 }
 
 void join(map<set<int>, int> &m, map<set<int>, int> &next){
@@ -83,52 +93,13 @@ void prune(map<set<int>, int> &m, map<set<int>, int> &next){
 	m = next; next.clear();
 }
 
-int main(){
-	fstream fin; int tmp, sup;
-	bool first=true;
-	fin.open("tid_pid.txt", ios::in);
-	fout.open("apriori_out.txt", ios::out|ios::trunc);
-	fout.close();
-	cout<<"Enter min support: "; cin>>sup;
-	map<set<int>, int> m, next; set<int> t; map<set<int>, int>::iterator tit;
-	//Bring file to memory
-	set<set<int> > file; set<int> f;
-	//Make initial sets
-	while(!fin.eof()){
-			if(first){
-				//ignore tid
-				fin>>tmp; first=false; continue;
-			}
-			fin>>tmp;
-			if(tmp==-999){
-				file.insert(f); f.clear();
-				//ignore tid
-				fin>>tmp; 
-				continue;
-			}
-			f.insert(tmp);
-			t.clear();
-			t.insert(tmp);
-			if(m.find(t)==m.end())
-			m[t] = 1;
-			else
-			m[t]++;
-	}
-	//prune(m, sup); 
-	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
-		if(it->second<sup){
-			tit = it;
-			tit++;
-			m.erase(it);
-			it = tit;
-		}
-		else
-		it++;
-	}
-	print(m); 
+void apriori(set<set<int> > &file, map<set<int>, int> &m, int sup){
+	map<set<int>, int>::iterator tit;
+	map<set<int>, int> next;
+	print(m, true); 
 	join(m, next);
 	prune(m, next);
-	fin.close();
+	
 	while(!m.empty()){
 		for(set<set<int> >::iterator it=file.begin(); it!=file.end(); it++){
 			for(map<set<int>, int>::iterator i=m.begin(); i!=m.end(); i++){
@@ -154,12 +125,82 @@ int main(){
 			else
 			it++;
 		}
-		print(m);
+		print(m, true);
 		join(m, next);
 		prune(m, next); 
 	}
-	
+}
 
+int main(){
+	fstream fin, fout; int tmp, sup;
+	bool first=true;
+	final.clear();
+	fin.open("tid_pid.txt", ios::in);
+	fout.open("apriori_out.txt", ios::out|ios::trunc);
+	fout.close();
+	cout<<"Enter min support: "; cin>>sup;
+	map<set<int>, int> m, next; set<int> t; map<set<int>, int>::iterator tit;
+	//Bring file to memory
+	set<set<int> > file; set<int> f;
+	//Make partitions
+	while(!fin.eof()){
+		for(int i=0; i<100&&!fin.eof(); ){
+			if(first){
+				//ignore tid
+				fin>>tmp; first=false; continue;
+			}
+			fin>>tmp;
+			if(tmp==-999){
+				file.insert(f); f.clear();
+				i++;
+				//ignore tid
+				fin>>tmp; 
+				continue;
+			}
+			f.insert(tmp);
+			t.clear();
+			t.insert(tmp);
+			if(m.find(t)==m.end())
+			m[t] = 1;
+			else
+			m[t]++;
+		}
+			
+		for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
+			if(it->second<sup){
+				tit = it;
+				tit++;
+				m.erase(it);
+				it = tit;
+			}
+			else
+			it++;
+		}
+		cout<<file.size();
+		apriori(file, m, sup/2);
+		file.clear();
+		m.clear();
+		fout.open("apriori_out.txt", ios::out|ios::app);
+		fout<<"END OF PARTITION\n";
+		fout.close();
+	}
+	//prune(m, sup); 
+	
+	//Remove infrequents w.r.t original support from final
+	for(map<set<int>, int>::iterator it=final.begin(); it!=final.end();){
+		if(it->second<sup){
+			tit = it;
+			tit++;
+			final.erase(it);
+			it = tit;
+		}
+		else
+		it++;
+	}
+	
+	print(final, false);
+	
+	fin.close();
 	return 0;
 }
 

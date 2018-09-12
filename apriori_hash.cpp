@@ -4,24 +4,31 @@
 
 using namespace std;
 
+class bucket {
+	public:
+		bucket(){
+			grp.clear();
+			cnt = 0;
+		}
+		vector<set<int> > grp;
+		int cnt;
+};
+
 fstream fout;
 void print(map<set<int>, int> &m){
-	fstream fout;
-	fout.open("apriori_out.txt", ios::out|ios::app);
 	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end(); it++){
-		cout<<"{"; fout<<"{";
+		cout<<"{";
 		for(set<int>::iterator i=it->first.begin(); i!=it->first.end(); i++){
-			cout<<*i<<" "; fout<<*i<<" ";
+			cout<<*i<<" ";
 		}
-		cout<<"} : "; fout<<"} : ";
-		cout<<it->second<<endl; fout<<it->second<<endl;
+		cout<<"} : ";
+		cout<<it->second<<endl;
 	}
 }
 
-void join(map<set<int>, int> &m, map<set<int>, int> &next){
+void join(map<set<int>, int> &m){
 	map<set<int>, int>::iterator a=m.begin(), b, tmp; set<int>::iterator i, j;
-	//map<set<int>, int> next; 
-	int n; bool join, first; set<int> t;
+	map<set<int>, int> next; int n; bool join, first; set<int> t;
 	for(a=m.begin(); a!=m.end(); a++){
 		first = true; tmp = a;
 		for(b=++a; b!=m.end(); b++){
@@ -46,13 +53,38 @@ void join(map<set<int>, int> &m, map<set<int>, int> &next){
 		}
 		a = tmp;
 	}
-	//m = next;
+	m = next;
 }
 
-void prune(map<set<int>, int> &m, map<set<int>, int> &next){
-	map<set<int>, int>::iterator tmp; set<int> curr, t;
-	
-	/*for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
+void hash(map<set<int>, int> &m, int sup){
+	bucket b[6]; long long mul = pow(10, m.begin()->first.size()-1); int h; map<set<int>, int> next;
+	//for(int i=0; i<6; i++){
+	//	b[i] = new bucket();
+	//}
+	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end(); it++){
+		set<int>::iterator setitr = it->first.begin();
+		while(setitr!=it->first.end()){
+			h += mul*(*setitr);
+			setitr++;
+			mul /= 10;
+		}
+		h %= 7;
+		b[h].grp.push_back(it->first);
+		b[h].cnt++;
+	}
+
+	for(int i=0; i<6; i++){
+		if(b[h].cnt>=sup){
+			for(int i=0; i<b[h].grp.size(); i++)
+				next[b[h].grp[i]] = m[b[h].grp[i]];
+		}
+	}
+	m = next;
+}
+
+void prune(map<set<int>, int> &m, int sup){
+	map<set<int>, int>::iterator tmp;
+	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
 		if(it->second<sup){
 			tmp = it;
 			tmp++;
@@ -61,36 +93,16 @@ void prune(map<set<int>, int> &m, map<set<int>, int> &next){
 		}
 		else
 		it++;
-	}*/
-	set<int>::iterator tit; bool isPruned;
-	for(map<set<int>, int>::iterator it=next.begin(); it!=next.end();){
-		curr = it->first; isPruned = false;
-		for(set<int>::iterator i=curr.begin(); i!=curr.end(); i++){
-			t = curr;
-			t.erase(*i);
-			if(m.find(t)==m.end()){
-				//prune this set
-				tmp = it; tmp++;
-				m.erase(curr);
-				it = tmp; isPruned = true;
-				break;
-			}
-			
-		}
-		if(!isPruned)
-		it++;
 	}
-	m = next; next.clear();
 }
 
 int main(){
 	fstream fin; int tmp, sup;
 	bool first=true;
 	fin.open("tid_pid.txt", ios::in);
-	fout.open("apriori_out.txt", ios::out|ios::trunc);
-	fout.close();
+	fout.open("apriori_out.txt", ios::out);
 	cout<<"Enter min support: "; cin>>sup;
-	map<set<int>, int> m, next; set<int> t; map<set<int>, int>::iterator tit;
+	map<set<int>, int> m; set<int> t;
 	//Bring file to memory
 	set<set<int> > file; set<int> f;
 	//Make initial sets
@@ -114,20 +126,10 @@ int main(){
 			else
 			m[t]++;
 	}
-	//prune(m, sup); 
-	for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
-		if(it->second<sup){
-			tit = it;
-			tit++;
-			m.erase(it);
-			it = tit;
-		}
-		else
-		it++;
-	}
+	prune(m, sup); 
 	print(m); 
-	join(m, next);
-	prune(m, next);
+	join(m);
+	hash(m, sup);  
 	fin.close();
 	while(!m.empty()){
 		for(set<set<int> >::iterator it=file.begin(); it!=file.end(); it++){
@@ -144,19 +146,10 @@ int main(){
 				i->second++;
 			}
 		}
-		for(map<set<int>, int>::iterator it=m.begin(); it!=m.end();){
-			if(it->second<sup){
-				tit = it;
-				tit++;
-				m.erase(it);
-				it = tit;
-			}
-			else
-			it++;
-		}
-		print(m);
-		join(m, next);
-		prune(m, next); 
+		prune(m, sup); 
+		print(m); 
+		join(m);
+		//hash(m, sup);
 	}
 	
 
